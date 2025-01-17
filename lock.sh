@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Hide&Lock: Secure File & Directory Encryption Tool
+# Author: Muhammad Ishaq Khan
+# Contact: andmynameiskhan@gmail.com
+# Version: 1.2.0
+
 CONFIG_DIR="$HOME/.config/secure_lock"
 CONFIG_FILE="$CONFIG_DIR/settings"
 PASSWORD_FILE="$CONFIG_DIR/.password_hash"
@@ -8,6 +13,10 @@ MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
 RECOVERY_SCRIPT="$CONFIG_DIR/password_recovery.sh"
 USER_KEY_FILE="$CONFIG_DIR/.user_key"
 SENSITIVE_DIRS_FILE="$HOME/Projects/goof/sensitive_dirs.txt"
+
+# Add session-specific variables near the top with other configs
+SESSION_NAME=""
+BASE_SESSION_DIR="$HOME/.config/secure_lock_sessions"
 
 # Create config directory if it doesn't exist
 mkdir -p "$CONFIG_DIR"
@@ -103,7 +112,6 @@ decrypt_with_password() {
     local password="$3"
     
     echo "Decrypting with password..."
-    echo "Using password: $password"  # Debug information
     # Try decryption with password
     if gpg $GPG_OPTS --passphrase-fd 3 --decrypt --output "$output_file" 3<<< "$password" < "$input_file"; then
         return 0
@@ -263,11 +271,11 @@ generate_master_key() {
     # Generate a random 32-character master key
     openssl rand -hex 16 > "$MASTER_KEY_FILE"
     chmod 600 "$MASTER_KEY_FILE"
-    echo -e "\n${YELLOW}╔═══════════════════════════════════════════════════════════     ╗${NC}"
-    echo -e "${YELLOW}  ║                     ${RED}! IMPORTANT !${YELLOW}               ║${NC}"
-    echo -e "${YELLOW}  ║ ${GREEN}Your master key is: $(cat "$MASTER_KEY_FILE")${YELLOW} ║${NC}"
-    echo -e "${YELLOW}  ║ Store this key in a secure location for password recovery      ║${NC}"
-    echo -e "${YELLOW}  ╚════════════════════════════════════════════════════════════    ╝${NC}\n"
+    echo -e "\n${YELLOW}  ╔═══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}  ║                     ${RED}! IMPORTANT !${YELLOW}                         ║${NC}"
+    echo -e "${YELLOW}  ║ ${GREEN}Your master key is: $(cat "$MASTER_KEY_FILE")${YELLOW}      ║${NC}"
+    echo -e "${YELLOW}  ║ Store this key in a secure location for password recovery ║${NC}"
+    echo -e "${YELLOW}  ╚═══════════════════════════════════════════════════════════╝${NC}\n"
 }
 
 # Add function to generate and store user key
@@ -281,7 +289,7 @@ get_user_key() {
     cat "$USER_KEY_FILE"
 }
 
-# Add help menu function
+# Updated help menu function
 show_help() {
     echo "Usage: $(basename "$0") [OPTION]"
     echo "Secure file/folder encryption tool"
@@ -291,11 +299,13 @@ show_help() {
     echo "  -m KEY         Recover access using master key"
     echo "  -r             Force lock sensitive directories"
     echo "  -k KEY         Provide current key for operations"
+    echo "  -s SESSION     Specify session name (e.g., Photos, Documents)"
     echo
     echo "Examples:"
     echo "  $(basename "$0")              Start the program normally"
     echo "  $(basename "$0") -m <key>     Recover access using master key"
     echo "  $(basename "$0") -r /path -k <current key>  Force lock sensitive directory"
+    echo "  $(basename "$0") -s Photos    Start the program with session 'Photos'"
     echo
     echo "To clean all data and start fresh:"
     echo "  rm -rf $CONFIG_DIR"
@@ -347,17 +357,48 @@ while [[ $# -gt 0 ]]; do
             CURRENT_PASSWORD="$1"
             shift
             ;;
+        -s|--session)
+            shift
+            if [ -z "$1" ]; then
+                echo "Error: Session name required"
+                exit 1
+            fi
+            SESSION_NAME="$1"
+            # Set config paths for session
+            CONFIG_DIR="$BASE_SESSION_DIR/$SESSION_NAME/config"
+            CONFIG_FILE="$CONFIG_DIR/settings"
+            PASSWORD_FILE="$CONFIG_DIR/.password_hash"
+            METADATA_FILE="$CONFIG_DIR/items.log"
+            MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
+            USER_KEY_FILE="$CONFIG_DIR/.user_key"
+            shift
+            ;;
+        -v|--version)
+            echo "Hide&Lock version 1.2.0"
+            echo "Author: Muhammad Ishaq Khan"
+            echo "Contact: andmynameiskhan@gmail.com"
+            exit 0
+            ;;
         --delete-config)
             echo -n "Enter your password to confirm deletion: "
             read -s entered_password
             echo
             stored_hash=$(cat "$PASSWORD_FILE")
             entered_hash=$(hash_password "$entered_password")
+
+            # Added user confirmation prompt
             if [ "$entered_hash" == "$stored_hash" ]; then
-                echo "Password verified. Deleting configuration directory..."
-                rm -rf "$CONFIG_DIR"
-                echo "Configuration directory deleted."
-                exit 0
+                echo -n "Are you sure you want to delete $CONFIG_DIR? [y/N]: "
+                read confirm
+                if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                    echo "Password verified. Deleting configuration directory..."
+                    rm -rf "$CONFIG_DIR"
+                    echo "Configuration directory deleted."
+                    exit 0
+                else
+                    echo "Deletion aborted."
+                    exit 1
+                fi
             else
                 echo "Incorrect password. Deletion aborted."
                 exit 1
@@ -391,6 +432,9 @@ if [ ! -d "$CONFIG_DIR" ]; then
     chmod 700 "$CONFIG_DIR"
     touch "$METADATA_FILE"
     chmod 600 "$METADATA_FILE"
+
+    # Call protect_config_directory here
+    protect_config_directory
 fi
 
 # Password setup
@@ -436,7 +480,7 @@ if [ "$MASTER_KEY_USED" = false ]; then
     entered_hash=$(hash_password "$entered_password")
 
     # Update the password verification section
-    if [ "$entered_hash" == "$stored_hash" ]; then
+    if [ "$entered_hash" == "$stored_hash" ];then
         CURRENT_PASSWORD="$entered_password"
         echo "Password verified successfully"  # Debug information
     else
@@ -469,7 +513,7 @@ change_password() {
     echo
     
     old_hash=$(hash_password "$old_password")
-    if [ "$old_hash" != "$(cat "$PASSWORD_FILE")" ]; then
+    if [ "$old_hash" != "$(cat "$PASSWORD_FILE")" ];then
         echo -e "${RED}Incorrect current password!${NC}"
         return 1
     fi
@@ -481,7 +525,7 @@ change_password() {
     read -s confirm_password
     echo
     
-    if [ "$new_password" == "$confirm_password" ]; then
+    if [ "$new_password" == "$confirm_password" ];then
         # Migrate encrypted files to new password
         local temp_dir=$(mktemp -d)
         local migration_failed=0
@@ -490,16 +534,16 @@ change_password() {
         echo -e "${YELLOW}Migrating encrypted files...${NC}"
         
         # Process each encrypted file
-        while IFS='|' read -r name path created locked size || [ -n "$name" ]; do
+        while IFS='|' read -r name path created locked size || [ -n "$name" ];do
             local encrypted_file="$CONFIG_DIR/$name.gpg"
             local temp_dec="$temp_dir/$name"
             
             echo "Processing: $name"
             
             # Try to decrypt with old password
-            if decrypt_with_password "$encrypted_file" "$temp_dec" "$old_password"; then
+            if decrypt_with_password "$encrypted_file" "$temp_dec" "$old_password";then
                 # Re-encrypt with new password
-                if encrypt_with_password "$temp_dec" "$encrypted_file.new" "$new_password"; then
+                if encrypt_with_password "$temp_dec" "$encrypted_file.new" "$new_password";then
                     mv "$encrypted_file.new" "$encrypted_file"
                     ((migrated_count++))
                     echo -e "${GREEN}Successfully migrated: $name${NC}"
@@ -517,7 +561,7 @@ change_password() {
         # Clean up
         rm -rf "$temp_dir"
         
-        if [ $migration_failed -eq 0 ]; then
+        if [ $migration_failed -eq 0 ];then
             # Update password file
             hash_password "$new_password" > "$PASSWORD_FILE"
             chmod 600 "$PASSWORD_FILE"
@@ -568,7 +612,7 @@ function handle_unlock() {
     
     # Split IDs by comma and trim spaces
     IFS=',' read -r -a id_array <<< "$ids"
-    for i in "${!id_array[@]}"; do
+    for i in "${!id_array[@]}";do
         id_array[$i]=$(echo "${id_array[$i]}" | xargs)
     done
     
@@ -577,23 +621,23 @@ function handle_unlock() {
     echo -n "Choose unlock type (1-2): "
     read unlock_type
     
-    for id in "${id_array[@]}"; do
+    for id in "${id_array[@]}";do
         local line=$(sed "${id}!d" "$METADATA_FILE")
-        if [ -n "$line" ]; then
+        if [ -n "$line" ];then
             IFS='|' read -r name path created locked size <<< "$line"
             ENCRYPTED_FILE="$CONFIG_DIR/$name.gpg"
             local target_dir=$(dirname "$path")
             
             echo "Unlocking $name..."
-            if [ "$unlock_type" = "1" ]; then
-                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path"; then
+            if [ "$unlock_type" = "1" ];then
+                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path";then
                     TEMP_UNLOCKED_ITEMS+=("$name|$path|$created|$locked|$size")
                     echo "Successfully unlocked at: $path (temporary)"
                 else
                     echo "Failed to unlock item!"
                 fi
-            elif [ "$unlock_type" = "2" ]; then
-                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path"; then
+            elif [ "$unlock_type" = "2" ];then
+                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path";then
                     rm "$ENCRYPTED_FILE"
                     sed -i "${id}d" "$METADATA_FILE"
                     echo "Successfully unlocked at: $path (permanent)"
@@ -608,23 +652,23 @@ function handle_unlock() {
 }
 
 # Modified main menu loop
-while true; do
+while true;do
     show_menu
     read choice
     case $choice in
         1)  # Lock new item
-            echo "Select folder to lock:"
-            read -p "Enter folder path: " folder_path
+            # Enable tab-completion with read -e
+            read -e -p "Enter folder path: " folder_path
             
-            if [ -z "$folder_path" ]; then
+            if [ -z "$folder_path" ];then
                 echo "Error: No path provided"
                 continue
             fi
             
             folder_path=$(realpath "$folder_path" 2>/dev/null)
-            if [ -e "$folder_path" ]; then
+            if [ -e "$folder_path" ];then
                 echo "Locking: $folder_path"
-                if lock_item "$folder_path"; then
+                if lock_item "$folder_path";then
                     echo "Item locked successfully!"
                 else
                     echo "Failed to lock item!"
@@ -649,4 +693,14 @@ while true; do
     echo
     read -p "Press Enter to continue..."
 done
+
+function protect_config_directory() {
+    echo "Protecting configuration directory with immutable attribute..."
+    # Check if running with sudo privileges
+    if [[ $EUID -ne 0 ]];then
+        echo "Warning: You may need sudo privileges to set the immutable bit."
+    fi
+    sudo chattr +i "$CONFIG_DIR" || echo "Warning: Failed to set immutable attribute."
+}
+
 
