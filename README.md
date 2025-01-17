@@ -130,6 +130,8 @@ Contributions are welcome! Please feel free to submit pull requests.
 4. Push to the branch
 5. Open a pull request
 
+## Coming for Windows in the next version.
+
 ## Contact 📞
 
 For support, feature requests, or issues:
