@@ -144,6 +144,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-Made with ❤️ by [Your Name]
+Made with ❤️ by Muhammad Ishaq Khan
 
 > **Note:** This tool is for legitimate use only. Always respect privacy and data protection laws.
