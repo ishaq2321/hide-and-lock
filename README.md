@@ -1,136 +1,149 @@
-# hide_and_lock
+# Hide&Lock: Secure File & Directory Encryption Tool 🔒
 
-`hide_and_lock` is a secure file/folder encryption tool that allows you to lock and unlock sensitive directories with a password. It uses GPG for encryption and provides additional features such as password recovery and secure deletion of the configuration directory.
+A powerful command-line tool for securely encrypting and managing sensitive files and directories with session support.
 
-## Features
+## Features ✨
 
-- Lock and unlock files and directories with a password
-- Support for sensitive directories
-- Password recovery using a master key
-- Secure deletion of the configuration directory with password verification
-- Change password functionality
+- 🔐 Strong AES256 encryption
+- 📁 Session-based file management
+- 🔑 Master key recovery system
+- ⚡ Temporary and permanent unlocking options 
+- 🛡️ Sensitive directory protection
+- 🎯 Simple and intuitive interface
 
-## Installation
-
-1. Clone the repository:
-
-    ```bash
-    git clone https://github.com/ishaq2321/hide_and_lock.git
-    cd hide_and_lock
-    ```
-
-2. Make the scripts executable:
-
-    ```bash
-    chmod +x lock.sh delete_secure_lock.sh
-    ```
-
-## Usage
-
-### Locking and Unlocking Items
-
-To lock a new item:
+## Installation 🚀
 
 ```bash
+# Clone the repository
+git clone https://github.com/ishaq2321/hide-and-lock.git
+
+# Navigate to the directory
+cd hide-and-lock
+
+# Make the script executable
+chmod +x lock.sh
+```
+
+## Quick Start 🎯
+
+```bash
+# Basic usage
+./lock.sh                     # Start normally
+./lock.sh -s Photos          # Start with session 'Photos'
+./lock.sh -h                 # Show help menu
+```
+
+## Usage Examples 💡
+
+### Basic Operations
+```bash
+# Lock a directory
 ./lock.sh
-```
+> Choose option 1
+> Enter path: /path/to/folder
 
-Follow the on-screen instructions to lock a new item.
-
-To unlock an item:
-
-```bash
+# Unlock a directory
 ./lock.sh
+> Choose option 2
+> Select ID and unlock type
 ```
 
-Follow the on-screen instructions to unlock an item.
+### Session Management
+```bash
+# Create/access a session
+./lock.sh -s Documents       # Work with Documents session
+./lock.sh -s Photos         # Work with Photos session
 
-### Changing Password
+# Each session maintains separate:
+- Passwords
+- Master keys
+- Locked items
+```
 
-To change the password:
+### Security Options
+```bash
+# Force lock sensitive directories
+./lock.sh -r -k <key> /path/to/sensitive
+
+# Recover using master key
+./lock.sh -m <master-key>
+```
+
+## Security Features 🛡️
+
+- AES256 encryption
+- Session isolation
+- Password hashing
+- Master key recovery
+- Immutable configuration
+- Temporary unlock support
+
+## Command Line Options 📝
 
 ```bash
-./lock.sh
+Options:
+  -h, --help     Show help message
+  -m KEY         Recover using master key
+  -r             Force lock sensitive directories
+  -k KEY         Provide current key
+  -s SESSION     Specify session name
 ```
 
-Select the option to change the password and follow the on-screen instructions.
+## Tips & Best Practices 💪
 
-### Deleting Configuration Directory
+1. **Always Remember:**
+   - Keep master keys safe
+   - Use strong passwords
+   - Backup important files
 
-To securely delete the configuration directory:
+2. **Session Usage:**
+   - Create separate sessions for different purposes
+   - Use meaningful session names
+   - Don't share session passwords
 
-```bash
-./delete_secure_lock.sh
-```
+3. **Security:**
+   - Avoid locking system directories
+   - Keep sensitive files separate
+   - Regular password changes
 
-You will be prompted to enter your password to confirm the deletion.
+## Troubleshooting 🔧
 
-## Command Line Options
+Common issues and solutions:
 
-- `-h, --help`: Show the help message
-- `-m <key>`: Recover access using the master key
-- `-r`: Force lock sensitive directories
-- `-k <key>`: Provide the current key for operations
+1. **Access Denied:**
+   - Verify correct password
+   - Check file permissions
+   - Ensure proper directory access
 
-## Examples
+2. **Session Issues:**
+   - Confirm session name
+   - Check session directory exists
+   - Verify session permissions
 
-Start the program normally:
+## Contributing 🤝
 
-```bash
-./lock.sh
-```
+Contributions are welcome! Please feel free to submit pull requests.
 
-Recover access using the master key:
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
 
-```bash
-./lock.sh -m <key>
-```
+## Contact 📞
 
-Force lock a sensitive directory:
+For support, feature requests, or issues:
 
-```bash
-./lock.sh -r /path -k <current key>
-```
+- 📱 Phone: +36 70 574 4971
+- 📧 Email: andmynameiskhan@gmail.com
+- 🌐 GitHub Issues: [Create an issue](https://github.com/ishaq2321/hide-and-lock/issues)
 
-## Sensitive Directories
+## License 📄
 
-The following directories are considered sensitive and are not recommended to be locked:
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-```
-/
-/bin
-/boot
-/dev
-/etc
-/home
-/lib
-/lib64
-/media
-/mnt
-/opt
-/proc
-/root
-/run
-/sbin
-/srv
-/sys
-/tmp
-/usr
-/var
-/home/ishaq2321/Desktop
-/home/ishaq2321/Downloads
-/home/ishaq2321/Documents
-/home/ishaq2321/Music
-/home/ishaq2321/Pictures
-/home/ishaq2321/Videos
-```
+---
 
-## License
+Made with ❤️ by [Your Name]
 
-## Contributing
-
-Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
-
-## Contact
-
-For any questions or support, please contact [ishaq2321](https://github.com/ishaq2321).
+> **Note:** This tool is for legitimate use only. Always respect privacy and data protection laws.
