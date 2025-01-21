@@ -1,1 +1,49 @@
 Add the folders that you believe should never be locked or made invisible below.
+
+
+Add the folders that you believe should never be locked or made invisible below.
+
+# System directories
+$HOME/.config/
+$HOME/.local/
+$HOME/.cache/
+$HOME/.ssh/
+$HOME/.gnupg/
+$HOME/.mozilla/
+$HOME/.bash_history
+$HOME/.bashrc
+$HOME/.bash_profile
+
+# User data directories
+$HOME/Desktop/
+$HOME/Documents/
+$HOME/Downloads/
+$HOME/Pictures/
+$HOME/Videos/
+$HOME/Music/
+
+# Application directories
+$HOME/.thunderbird/
+$HOME/.vscode/
+$HOME/.npm/
+$HOME/.yarn/
+$HOME/.gradle/
+
+# System configuration
+/etc/
+/usr/
+/bin/
+/sbin/
+/lib/
+/var/
+/boot/
+/dev/
+/proc/
+/sys/
+/run/
+
+# User specific application data
+$HOME/.config/google-chrome/
+$HOME/.config/chromium/
+$HOME/.config/firefox/
+$HOME/.local/share/
