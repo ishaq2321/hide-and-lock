@@ -2,6 +2,17 @@
 
 A powerful command-line tool for securely encrypting and managing sensitive files and directories with session support.
 
+## ⚠️ Important Disclaimer
+**We are not responsible for any data loss.** While Hide&Lock is designed to be secure and reliable:
+- Always keep backups of important files before locking them
+- Store your master keys in a safe place
+- Be careful with sensitive directories
+- Data loss might occur due to:
+  - Forgetting passwords or master keys
+  - System crashes during encryption/decryption
+  - Improper use of force options (-r)
+  - Accidental deletion of configuration
+
 ## Features ✨
 
 - 🔐 Strong AES256 encryption
@@ -10,6 +21,8 @@ A powerful command-line tool for securely encrypting and managing sensitive file
 - ⚡ Temporary and permanent unlocking options 
 - 🛡️ Sensitive directory protection
 - 🎯 Simple and intuitive interface
+- 🔄 Multiple session support with separate passwords
+- ⚙️ Session management tools
 
 ## Installation 🚀
 
@@ -48,16 +61,22 @@ chmod +x lock.sh
 > Select ID and unlock type
 ```
 
+## Advanced Usage 💡
+
 ### Session Management
 ```bash
 # Create/access a session
-./lock.sh -s Documents       # Work with Documents session
 ./lock.sh -s Photos         # Work with Photos session
+./lock.sh -s Documents      # Work with Documents session
 
-# Each session maintains separate:
-- Passwords
-- Master keys
-- Locked items
+# Delete a session
+./lock.sh --delete-session  # Interactive session deletion
+
+# Each session has:
+- Independent password
+- Unique master key
+- Separate locked items
+- Isolated configuration
 ```
 
 ### Security Options
@@ -67,6 +86,12 @@ chmod +x lock.sh
 
 # Recover using master key
 ./lock.sh -m <master-key>
+
+# Delete configuration
+./lock.sh --delete-config
+
+# Show version info
+./lock.sh -v
 ```
 
 ## Security Features 🛡️
@@ -82,29 +107,34 @@ chmod +x lock.sh
 
 ```bash
 Options:
-  -h, --help     Show help message
-  -m KEY         Recover using master key
-  -r             Force lock sensitive directories
-  -k KEY         Provide current key
-  -s SESSION     Specify session name
+  -h, --help         Show help message
+  -m KEY            Recover using master key
+  -r                Force lock sensitive directories
+  -k KEY            Provide current key for operations
+  -s SESSION        Specify session name (e.g., Photos, Documents)
+  -v, --version     Show program version and author information
+  --delete-session  Delete a specific session (interactive)
+  --delete-config   Delete configuration (requires password)
 ```
 
 ## Tips & Best Practices 💪
 
-1. **Always Remember:**
-   - Keep master keys safe
-   - Use strong passwords
-   - Backup important files
-
-2. **Session Usage:**
-   - Create separate sessions for different purposes
+1. **Session Management:**
+   - Create separate sessions for different types of data
    - Use meaningful session names
-   - Don't share session passwords
+   - Keep track of master keys for each session
+   - Regularly backup session configurations
 
-3. **Security:**
-   - Avoid locking system directories
-   - Keep sensitive files separate
-   - Regular password changes
+2. **Data Safety:**
+   - Never delete configuration directories manually
+   - Always use --delete-session for removing sessions
+   - Keep master keys in a secure, separate location
+   - Test unlocking before deleting original files
+
+3. **Sensitive Directories:**
+   - Check sensitive_dirs.txt for protected locations
+   - Use -r flag carefully with sensitive directories
+   - Create sessions away from system directories
 
 ## Troubleshooting 🔧
 
