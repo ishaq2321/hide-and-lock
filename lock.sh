@@ -785,7 +785,7 @@ show_menu() {
 
 # Remove change_password function
 
-# Modified handle_unlock function to better track temporary items and support multiple IDs
+# Modified handle_unlock function to fix sed command issue
 function handle_unlock() {
     echo "=== Locked Items ==="
     echo "ID  | Name | Size | Created | Locked Date"
@@ -798,8 +798,8 @@ function handle_unlock() {
     
     # Split IDs by comma and trim spaces
     IFS=',' read -r -a id_array <<< "$ids"
-    for i in "${!id_array[@]}";do
-        id_array[$i]=$(echo "${id_array[$i]}" | xargs)
+    for i in "${!id_array[@]}"; do
+        id_array[$i]=$(echo "${id_array[$i]}" | tr -d '[:space:]')
     done
     
     echo "1. Temporary unlock (until program exit)"
@@ -807,24 +807,26 @@ function handle_unlock() {
     echo -n "Choose unlock type (1-2): "
     read unlock_type
     
-    for id in "${id_array[@]}"];do
-        local line=$(sed "${id}!d" "$METADATA_FILE")
-        if [ -n "$line" ];then
+    for id in "${id_array[@]}"; do
+        # Use awk to get the specific line instead of sed
+        local line=$(awk "NR==$id" "$METADATA_FILE")
+        if [ -n "$line" ]; then
             IFS='|' read -r name path created locked size <<< "$line"
             ENCRYPTED_FILE="$CONFIG_DIR/$name.gpg"
             local target_dir=$(dirname "$path")
             
             echo "Unlocking $name..."
-            if [ "$unlock_type" = "1" ];then
-                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path";then
+            if [ "$unlock_type" = "1" ]; then
+                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path"; then
                     TEMP_UNLOCKED_ITEMS+=("$name|$path|$created|$locked|$size")
                     echo "Successfully unlocked at: $path (temporary)"
                 else
                     echo "Failed to unlock item!"
                 fi
-            elif [ "$unlock_type" = "2" ];then
-                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path";then
+            elif [ "$unlock_type" = "2" ]; then
+                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path"; then
                     rm "$ENCRYPTED_FILE"
+                    # Use more reliable sed syntax for deletion
                     sed -i "${id}d" "$METADATA_FILE"
                     echo "Successfully unlocked at: $path (permanent)"
                 else
