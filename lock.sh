@@ -387,6 +387,32 @@ setup_session_paths() {
     METADATA_FILE="$CONFIG_DIR/items.log"
     MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
     USER_KEY_FILE="$CONFIG_DIR/.user_key"
+
+    # Create directory structure with proper permissions
+    if [ ! -d "$BASE_SESSION_DIR" ]; then
+        if ! mkdir -p "$BASE_SESSION_DIR"; then
+            echo -e "${RED}Error: Could not create base session directory${NC}"
+            exit 1
+        fi
+        chmod 700 "$BASE_SESSION_DIR"
+    fi
+
+    if [ ! -d "$CONFIG_DIR" ]; then
+        if ! mkdir -p "$CONFIG_DIR"; then
+            echo -e "${RED}Error: Could not create config directory${NC}"
+            exit 1
+        fi
+        chmod 700 "$CONFIG_DIR"
+    fi
+
+    # Initialize required files with proper permissions
+    for file in "$PASSWORD_FILE" "$METADATA_FILE" "$MASTER_KEY_FILE" "$USER_KEY_FILE"; do
+        if ! touch "$file" 2>/dev/null; then
+            echo -e "${RED}Error: Could not create file: $file${NC}"
+            exit 1
+        fi
+        chmod 600 "$file"
+    done
 }
 
 function delete_session() {
@@ -613,7 +639,7 @@ if [ ! -d "$CONFIG_DIR" ]; then
 fi
 
 # Password setup
-if [ ! -f "$PASSWORD_FILE" ]; then
+if [ ! -f "$PASSWORD_FILE" ] || [ ! -s "$PASSWORD_FILE" ]; then
     if [ -n "$SESSION_NAME" ]; then
         echo -e "${YELLOW}First-time setup for session: $SESSION_NAME${NC}"
     else
@@ -634,18 +660,39 @@ if [ ! -f "$PASSWORD_FILE" ]; then
         echo
 
         if [ "$new_password" == "$confirm_password" ]; then
-            hash_password "$new_password" > "$PASSWORD_FILE"
-            chmod 600 "$PASSWORD_FILE"
+            # Write password hash with error checking
+            if ! hash_password "$new_password" > "$PASSWORD_FILE"; then
+                echo -e "${RED}Error: Could not write password hash${NC}"
+                exit 1
+            fi
+            
             echo -e "${GREEN}Password set successfully!${NC}"
             
-            # Generate new master key for this session
-            generate_master_key
-            
-            # Set CURRENT_PASSWORD to the new password
+            # Set current password before generating keys
             CURRENT_PASSWORD="$new_password"
             
-            # Generate and store user key
-            generate_user_key
+            # Generate master key with error checking
+            if ! openssl rand -hex 16 > "$MASTER_KEY_FILE"; then
+                echo -e "${RED}Error: Could not generate master key${NC}"
+                exit 1
+            fi
+            
+            # Generate and store user key with error checking
+            if ! echo -n "$CURRENT_PASSWORD" > "$USER_KEY_FILE"; then
+                echo -e "${RED}Error: Could not store user key${NC}"
+                exit 1
+            fi
+            
+            # Display master key
+            if [ -f "$MASTER_KEY_FILE" ]; then
+                echo -e "\n${YELLOW}  ╔═══════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${YELLOW}  ║                     ${RED}! IMPORTANT !${YELLOW}                         ║${NC}"
+                echo -e "${YELLOW}  ║ ${GREEN}Your master key is: $(cat "$MASTER_KEY_FILE")${YELLOW}      ║${NC}"
+                echo -e "${YELLOW}  ║ Store this key in a secure location for password recovery ║${NC}"
+                echo -e "${YELLOW}  ╚═══════════════════════════════════════════════════════════╝${NC}\n"
+            else
+                echo -e "${RED}Warning: Could not read master key${NC}"
+            fi
             
             echo "Press Enter to continue..."
             read
