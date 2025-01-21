@@ -122,10 +122,26 @@ decrypt_with_password() {
     return 1
 }
 
-# Function to check if a directory is sensitive
+# Updated function to check if a directory is sensitive
 is_sensitive_directory() {
     local dir="$1"
-    while IFS= read -r sensitive_dir; do
+    # Normalize the path (remove trailing slash if exists)
+    dir="${dir%/}/"
+    # Expand $HOME variable in the input path
+    dir="${dir/\$HOME/$HOME}"
+    dir="${dir/\~/$HOME}"
+    
+    while IFS= read -r sensitive_dir || [ -n "$sensitive_dir" ]; do
+        # Skip empty lines and comments
+        [[ -z "$sensitive_dir" || "$sensitive_dir" =~ ^[[:space:]]*# ]] && continue
+        
+        # Expand $HOME variable in the sensitive directory path
+        sensitive_dir="${sensitive_dir/\$HOME/$HOME}"
+        sensitive_dir="${sensitive_dir/\~/$HOME}"
+        
+        # Normalize the sensitive directory path
+        sensitive_dir="${sensitive_dir%/}/"
+        
         if [[ "$dir" == "$sensitive_dir" ]]; then
             return 0
         fi
@@ -133,7 +149,7 @@ is_sensitive_directory() {
     return 1
 }
 
-# Modified lock_item function to handle re-locking and sensitive directories
+# Modified lock_item function to handle sensitive directories
 function lock_item() {
     local source_path="$1"
     local source_name=$(basename "$source_path")
@@ -142,9 +158,9 @@ function lock_item() {
     
     # Check for sensitive directories
     if is_sensitive_directory "$source_path" && [ "$FORCE_LOCK" = false ]; then
-        echo -e "${RED}You are trying to lock folders with sensitive information, which we never recommend.${NC}"
-        echo -e "${YELLOW}If you would like to lock this, use the -r option.${NC}"
-        echo -e "${YELLOW}Example: ./lock.sh -r -k <current key> /path${NC}"
+        echo -e "${RED}Error: You are trying to lock a folder marked as sensitive.${NC}"
+        echo -e "${YELLOW}If you really want to lock this folder, use the -r option:${NC}"
+        echo -e "${YELLOW}Example: ./lock.sh -r -k <current key> \"$source_path\"${NC}"
         return 1
     fi
     
