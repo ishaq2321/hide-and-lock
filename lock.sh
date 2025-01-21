@@ -308,7 +308,7 @@ show_help() {
     echo "  $(basename "$0") -s Photos    Start the program with session 'Photos'"
     echo
     echo "To clean all data and start fresh:"
-    echo "  rm -rf $CONFIG_DIR"
+    # echo "  rm -rf $CONFIG_DIR"
 }
 
 # Add command line argument handling (add this before the main script logic)
