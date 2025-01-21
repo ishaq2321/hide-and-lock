@@ -46,7 +46,24 @@ NC='\033[0m' # No Color
 # Add new variable near the top with other configs
 RECOVERY_PASSWORD_FILE="$CONFIG_DIR/.recovery_password"
 
-# Add new function to validate metadata entries
+# Define ALL functions at the start
+function protect_config_directory() {
+    echo "Protecting configuration directory with immutable attribute..."
+    if [[ $EUID -ne 0 ]]; then
+        echo "Warning: You may need sudo privileges to set the immutable bit."
+    fi
+    sudo chattr +i "$CONFIG_DIR" || echo "Warning: Failed to set immutable attribute."
+}
+
+function validate_password() {
+    local password="$1"
+    if [ -z "$password" ] || [ ${#password} -lt 4 ]; then
+        echo -e "${RED}Error: Password must be at least 4 characters long${NC}"
+        return 1
+    fi
+    return 0
+}
+
 function validate_metadata() {
     local temp_file="$METADATA_FILE.tmp"
     local valid_entries=0
@@ -306,29 +323,135 @@ get_user_key() {
     cat "$USER_KEY_FILE"
 }
 
+# Add these functions near the top with other function definitions
+get_master_key() {
+    if [ -f "$1" ]; then
+        cat "$1"
+        return 0
+    fi
+    return 1
+}
+
+function find_session_by_master_key() {
+    local input_key="$1"
+    # Search all session directories
+    for session_folder in "$BASE_SESSION_DIR"/*; do
+        [ -d "$session_folder" ] || continue
+        local possible_key_file="$session_folder/config/.master_key"
+        if [ -f "$possible_key_file" ]; then
+            local possible_key
+            possible_key=$(cat "$possible_key_file")
+            if [ "$input_key" == "$possible_key" ]; then
+                echo "$(basename "$session_folder")"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
 # Updated help menu function
 show_help() {
     echo "Usage: $(basename "$0") [OPTION]"
     echo "Secure file/folder encryption tool"
     echo
     echo "Options:"
-    echo "  -h, --help     Show this help message"
-    echo "  -m KEY         Recover access using master key"
-    echo "  -r             Force lock sensitive directories"
-    echo "  -k KEY         Provide current key for operations"
-    echo "  -s SESSION     Specify session name (e.g., Photos, Documents)"
+    echo "  -h, --help         Show this help message"
+    echo "  -m KEY            Recover access using master key"
+    echo "  -r                Force lock sensitive directories"
+    echo "  -k KEY            Provide current key for operations"
+    echo "  -s SESSION        Specify session name (e.g., Photos, Documents)"
+    echo "  -v, --version     Show program version and author information"
+    echo "  --delete-session  Delete a specific session (interactive)"
+    echo "  --delete-config   Delete configuration (requires password)"
     echo
     echo "Examples:"
     echo "  $(basename "$0")              Start the program normally"
     echo "  $(basename "$0") -m <key>     Recover access using master key"
     echo "  $(basename "$0") -r /path -k <current key>  Force lock sensitive directory"
     echo "  $(basename "$0") -s Photos    Start the program with session 'Photos'"
+    echo "  $(basename "$0") --delete-session  Delete an existing session"
     echo
     echo "To clean all data and start fresh:"
-    # echo "  rm -rf $CONFIG_DIR"
+    #echo "  rm -rf $CONFIG_DIR  # WARNING: Deletes all data, use with caution!"
 }
 
 # Add command line argument handling (add this before the main script logic)
+# Add command line argument handling section
+setup_session_paths() {
+    local session_name="$1"
+    BASE_SESSION_DIR="$HOME/.config/secure_lock_sessions"
+    CONFIG_DIR="$BASE_SESSION_DIR/$session_name/config"
+    CONFIG_FILE="$CONFIG_DIR/settings"
+    PASSWORD_FILE="$CONFIG_DIR/.password_hash"
+    METADATA_FILE="$CONFIG_DIR/items.log"
+    MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
+    USER_KEY_FILE="$CONFIG_DIR/.user_key"
+}
+
+function delete_session() {
+    echo "Available sessions:"
+    local sessions=()
+    local index=1
+
+    for session_folder in "$BASE_SESSION_DIR"/*; do
+        [ -d "$session_folder" ] || continue
+        local session_name
+        session_name=$(basename "$session_folder")
+        echo "$index) $session_name"
+        sessions+=("$session_name")
+        ((index++))
+    done
+
+    echo -n "Select a session to delete (number): "
+    read selection
+    local chosen="${sessions[$((selection-1))]}"
+    if [ -z "$chosen" ]; then
+        echo "Invalid selection."
+        return 1
+    fi
+
+    echo -n "Enter the key for session '$chosen': "
+    read -s entered_key
+    echo
+
+    local chosen_user_key="$BASE_SESSION_DIR/$chosen/config/.user_key"
+    if [ ! -f "$chosen_user_key" ]; then
+        echo "User key not found for session '$chosen'."
+        return 1
+    fi
+
+    local stored_key
+    stored_key=$(cat "$chosen_user_key")
+    if [ "$stored_key" != "$entered_key" ]; then
+        echo "Invalid key. Deletion aborted."
+        return 1
+    fi
+
+    rm -rf "$BASE_SESSION_DIR/$chosen"
+    echo "Session '$chosen' deleted successfully."
+}
+
+# First pass - handle session setup
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -s|--session)
+            shift
+            if [ -z "$1" ]; then
+                echo "Error: Session name required"
+                exit 1
+            fi
+            SESSION_NAME="$1"
+            setup_session_paths "$SESSION_NAME"
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# Second pass - handle other arguments with correct paths
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -341,18 +464,33 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: Master key required"
                 exit 1
             fi
-            if [ "$1" == "$(cat "$MASTER_KEY_FILE")" ]; then
-                CURRENT_PASSWORD=$(get_user_key)
-                MASTER_KEY_USED=true
-                echo "Master key verified successfully"
-                echo -e "${YELLOW}Your key is: ${GREEN}$CURRENT_PASSWORD${NC}"
-                echo "Press Enter to exit..."
-                read
-                exit 0
-            else
-                echo "Invalid master key"
-                exit 1
+            
+            if [ ! -f "$MASTER_KEY_FILE" ] || [ "$1" != "$(cat "$MASTER_KEY_FILE")" ]; then
+                echo "Master key not found for current session, searching all sessions..."
+                found_session=$(find_session_by_master_key "$1")
+                if [ -z "$found_session" ]; then
+                    echo "Invalid master key"
+                    exit 1
+                else
+                    echo "Found matching session: $found_session"
+                    SESSION_NAME="$found_session"
+                    # Reconfigure paths for the found session
+                    setup_session_paths "$SESSION_NAME"
+                    if [ ! -f "$USER_KEY_FILE" ]; then
+                        echo "Error: User key file not found in session $found_session"
+                        exit 1
+                    fi
+                fi
             fi
+            
+            # If we reach here, the master key is valid; proceed with user key
+            CURRENT_PASSWORD=$(cat "$USER_KEY_FILE")
+            MASTER_KEY_USED=true
+            echo "Master key verified successfully"
+            echo -e "${YELLOW}Your key is: ${GREEN}$CURRENT_PASSWORD${NC}"
+            echo "Press Enter to exit..."
+            read
+            exit 0
             shift
             ;;
         -r)
@@ -381,13 +519,30 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             SESSION_NAME="$1"
-            # Set config paths for session
+            
+            # Set session-specific paths
+            BASE_SESSION_DIR="$HOME/.config/secure_lock_sessions"
             CONFIG_DIR="$BASE_SESSION_DIR/$SESSION_NAME/config"
             CONFIG_FILE="$CONFIG_DIR/settings"
             PASSWORD_FILE="$CONFIG_DIR/.password_hash"
             METADATA_FILE="$CONFIG_DIR/items.log"
             MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
             USER_KEY_FILE="$CONFIG_DIR/.user_key"
+            
+            # Create fresh session directory if it doesn't exist
+            if [ ! -d "$CONFIG_DIR" ]; then
+                echo -e "${YELLOW}Creating new session: $SESSION_NAME${NC}"
+                mkdir -p "$CONFIG_DIR"
+                chmod 700 "$CONFIG_DIR"
+                touch "$METADATA_FILE"
+                chmod 600 "$METADATA_FILE"
+                
+                # Since this is a new session, we'll need new password and master key
+                PASSWORD_FILE_EXISTS=0
+            else
+                echo -e "${GREEN}Resuming session: $SESSION_NAME${NC}"
+                PASSWORD_FILE_EXISTS=1
+            fi
             shift
             ;;
         -v|--version)
@@ -421,6 +576,10 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
+        --delete-session)
+            delete_session
+            exit 0
+            ;;
         *)
             if [ "$FORCE_LOCK" = true ]; then
                 LOCK_PATH="$1"
@@ -450,41 +609,51 @@ if [ ! -d "$CONFIG_DIR" ]; then
     touch "$METADATA_FILE"
     chmod 600 "$METADATA_FILE"
 
-    # Call protect_config_directory here
     protect_config_directory
 fi
 
 # Password setup
 if [ ! -f "$PASSWORD_FILE" ]; then
-    echo "First-time setup - Password Creation"
-    echo -n "Enter a new password: "
-    read -s new_password
-    echo
-    echo -n "Confirm the new password: "
-    read -s confirm_password
-    echo
-
-    if [ "$new_password" == "$confirm_password" ]; then
-        hash_password "$new_password" > "$PASSWORD_FILE"
-        chmod 600 "$PASSWORD_FILE"
-        echo -e "${GREEN}Password set successfully!${NC}"
+    if [ -n "$SESSION_NAME" ]; then
+        echo -e "${YELLOW}First-time setup for session: $SESSION_NAME${NC}"
+    else
+        echo "First-time setup - Password Creation"
+    fi
+    
+    while true; do
+        echo -n "Enter a new password: "
+        read -s new_password
+        echo
         
-        # Generate master key on first password setup
-        if [ ! -f "$MASTER_KEY_FILE" ]; then
-            generate_master_key
-            echo "Press Enter to continue..."
-            read
+        if ! validate_password "$new_password"; then
+            continue
         fi
         
-        # Set CURRENT_PASSWORD to the new password
-        CURRENT_PASSWORD="$new_password"
-        
-        # Generate and store user key
-        generate_user_key
-    else
-        echo -e "${RED}Passwords do not match. Exiting.${NC}"
-        exit 1
-    fi
+        echo -n "Confirm the new password: "
+        read -s confirm_password
+        echo
+
+        if [ "$new_password" == "$confirm_password" ]; then
+            hash_password "$new_password" > "$PASSWORD_FILE"
+            chmod 600 "$PASSWORD_FILE"
+            echo -e "${GREEN}Password set successfully!${NC}"
+            
+            # Generate new master key for this session
+            generate_master_key
+            
+            # Set CURRENT_PASSWORD to the new password
+            CURRENT_PASSWORD="$new_password"
+            
+            # Generate and store user key
+            generate_user_key
+            
+            echo "Press Enter to continue..."
+            read
+            break
+        else
+            echo -e "${RED}Passwords do not match. Try again.${NC}"
+        fi
+    done
 fi
 
 # Verify password if master key was not used
@@ -638,7 +807,7 @@ function handle_unlock() {
     echo -n "Choose unlock type (1-2): "
     read unlock_type
     
-    for id in "${id_array[@]}";do
+    for id in "${id_array[@]}"];do
         local line=$(sed "${id}!d" "$METADATA_FILE")
         if [ -n "$line" ];then
             IFS='|' read -r name path created locked size <<< "$line"
@@ -710,14 +879,5 @@ while true;do
     echo
     read -p "Press Enter to continue..."
 done
-
-function protect_config_directory() {
-    echo "Protecting configuration directory with immutable attribute..."
-    # Check if running with sudo privileges
-    if [[ $EUID -ne 0 ]];then
-        echo "Warning: You may need sudo privileges to set the immutable bit."
-    fi
-    sudo chattr +i "$CONFIG_DIR" || echo "Warning: Failed to set immutable attribute."
-}
 
 
