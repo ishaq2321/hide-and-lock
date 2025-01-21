@@ -12,7 +12,7 @@ METADATA_FILE="$CONFIG_DIR/items.log"
 MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
 RECOVERY_SCRIPT="$CONFIG_DIR/password_recovery.sh"
 USER_KEY_FILE="$CONFIG_DIR/.user_key"
-SENSITIVE_DIRS_FILE="$HOME/Projects/goof/sensitive_dirs.txt"
+SENSITIVE_DIRS_FILE="$HOME/Projects/sensitive_dirs.txt"
 
 # Add session-specific variables near the top with other configs
 SESSION_NAME=""
