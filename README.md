@@ -176,6 +176,4 @@ This project is licensed under the GNU General Public License v3.0. See the [LIC
 
 ---
 
-Made with ❤️ by Muhammad Ishaq Khan
-
 > **Note:** This tool is for legitimate use only. Always respect privacy and data protection laws.
