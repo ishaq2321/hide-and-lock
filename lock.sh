@@ -573,8 +573,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v|--version)
             echo "Hide&Lock version 1.2.0"
-            echo "Author: Muhammad Ishaq Khan"
-            echo "Contact: andmynameiskhan@gmail.com"
             exit 0
             ;;
         --delete-config)
