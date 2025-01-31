@@ -41,7 +41,7 @@ chmod +x lock.sh
 
 ```bash
 # Basic usage
-./lock.sh                     # Start normally
+./lock.sh                    # Start normally
 ./lock.sh -s Photos          # Start with session 'Photos'
 ./lock.sh -h                 # Show help menu
 ```
@@ -94,15 +94,6 @@ chmod +x lock.sh
 ./lock.sh -v
 ```
 
-## Security Features 🛡️
-
-- AES256 encryption
-- Session isolation
-- Password hashing
-- Master key recovery
-- Immutable configuration
-- Temporary unlock support
-
 ## Command Line Options 📝
 
 ```bash
@@ -136,19 +127,6 @@ Options:
    - Use -r flag carefully with sensitive directories
    - Create sessions away from system directories
 
-## Troubleshooting 🔧
-
-Common issues and solutions:
-
-1. **Access Denied:**
-   - Verify correct password
-   - Check file permissions
-   - Ensure proper directory access
-
-2. **Session Issues:**
-   - Confirm session name
-   - Check session directory exists
-   - Verify session permissions
 
 ## Contributing 🤝
 
@@ -165,8 +143,6 @@ Contributions are welcome! Please feel free to submit pull requests.
 ## Contact 📞
 
 For support, feature requests, or issues:
-
-- 📱 Phone: +36 70 574 4971
 - 📧 Email: andmynameiskhan@gmail.com
 - 🌐 GitHub Issues: [Create an issue](https://github.com/ishaq2321/hide-and-lock/issues)
 
