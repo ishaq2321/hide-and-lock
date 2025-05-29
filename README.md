@@ -1,6 +1,6 @@
 # Hide&Lock: Secure File & Directory Encryption Tool 🔒
 
-A powerful command-line tool for securely encrypting and managing sensitive files and directories with session support.
+A powerful command-line tool for securely encrypting and managing sensitive files and directories with session support and advanced file utilities.
 
 ## ⚠️ Important Disclaimer
 **We are not responsible for any data loss.** While Hide&Lock is designed to be secure and reliable:
@@ -23,6 +23,9 @@ A powerful command-line tool for securely encrypting and managing sensitive file
 - 🎯 Simple and intuitive interface
 - 🔄 Multiple session support with separate passwords
 - ⚙️ Session management tools
+- 📅 **NEW: Timestamp manipulation** - Modify file/folder creation and modification dates
+- 🕐 **NEW: Batch timestamp operations** - Update multiple files at once
+- 📋 **NEW: Timestamp copying** - Copy timestamps between files
 
 ## Installation 🚀
 
@@ -59,6 +62,38 @@ chmod +x lock.sh
 ./lock.sh
 > Choose option 2
 > Select ID and unlock type
+
+# Timestamp manipulation
+./lock.sh
+> Choose option 4
+> Various timestamp operations available
+```
+
+### Timestamp Manipulation Examples
+```bash
+# View current timestamps
+./lock.sh
+> Option 4 -> Option 1
+> Enter file path
+
+# Set specific timestamps
+./lock.sh
+> Option 4 -> Option 2
+> Enter timestamps in various formats:
+  - "2023-12-25 15:30:00"
+  - "2023-12-25"
+  - "2 days ago"
+  - "last week"
+
+# Copy timestamps from another file
+./lock.sh
+> Option 4 -> Option 3
+> Specify source and target files
+
+# Batch operations
+./lock.sh
+> Option 4 -> Option 4
+> Update multiple files with same timestamp
 ```
 
 ## Advanced Usage 💡
@@ -108,6 +143,27 @@ Options:
   --delete-config   Delete configuration (requires password)
 ```
 
+## Timestamp Manipulation Features 📅
+
+### Supported Date Formats
+- **ISO Format**: `2023-12-25 15:30:00`
+- **Date Only**: `2023-12-25`
+- **Relative**: `2 days ago`, `last week`, `yesterday`
+- **Natural**: `Dec 25 2023`, `Christmas 2023`
+
+### Operations Available
+1. **View Timestamps** - Display current access, modify, and change times
+2. **Set Specific Times** - Manually set access and modification times
+3. **Copy Timestamps** - Copy timestamps from one file to another
+4. **Batch Operations** - Update multiple files/directories at once
+5. **Reset to Current** - Update timestamps to current time
+
+### Use Cases
+- **Privacy**: Remove traces of when files were accessed/modified
+- **Organization**: Set consistent timestamps for related files
+- **Forensics**: Analyze or modify file timeline information
+- **Backup Restoration**: Maintain original timestamps after restoration
+
 ## Tips & Best Practices 💪
 
 1. **Session Management:**
@@ -127,6 +183,11 @@ Options:
    - Use -r flag carefully with sensitive directories
    - Create sessions away from system directories
 
+4. **Timestamp Operations:**
+   - Always verify timestamps after modification
+   - Be careful with batch operations on system files
+   - Keep backups before major timestamp changes
+   - Use relative dates for convenience ("2 days ago")
 
 ## Contributing 🤝
 

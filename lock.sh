@@ -3,7 +3,7 @@
 # Hide&Lock: Secure File & Directory Encryption Tool
 # Author: Muhammad Ishaq Khan
 # Contact: andmynameiskhan@gmail.com
-# Version: 1.2.0
+# Version: 1.3.0
 
 CONFIG_DIR="$HOME/.config/secure_lock"
 CONFIG_FILE="$CONFIG_DIR/settings"
@@ -572,7 +572,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -v|--version)
-            echo "Hide&Lock version 1.2.0"
+            echo "Hide&Lock version 1.3.0"
             exit 0
             ;;
         --delete-config)
@@ -817,71 +817,269 @@ change_password() {
     fi
 }
 
+# Add new timestamp manipulation functions
+function validate_date_format() {
+    local date_input="$1"
+    
+    # Check various date formats
+    if date -d "$date_input" >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+
+function format_timestamp() {
+    local date_input="$1"
+    # Convert to standard format: YYYY-MM-DD HH:MM:SS
+    date -d "$date_input" "+%Y-%m-%d %H:%M:%S"
+}
+
+function set_file_timestamps() {
+    local target_path="$1"
+    local access_time="$2"
+    local modify_time="$3"
+    local create_time="$4"  # Note: creation time requires special handling
+    
+    if [ ! -e "$target_path" ]; then
+        echo -e "${RED}Error: Path does not exist: $target_path${NC}"
+        return 1
+    fi
+    
+    # Set access and modification times
+    if [ -n "$access_time" ] && [ -n "$modify_time" ]; then
+        local access_formatted=$(date -d "$access_time" "+%Y%m%d%H%M.%S")
+        local modify_formatted=$(date -d "$modify_time" "+%Y%m%d%H%M.%S")
+        
+        # Use touch command to set both times
+        if touch -t "$modify_formatted" "$target_path" && \
+           touch -a -t "$access_formatted" "$target_path"; then
+            echo -e "${GREEN}Successfully updated timestamps for: $target_path${NC}"
+            return 0
+        else
+            echo -e "${RED}Failed to update timestamps${NC}"
+            return 1
+        fi
+    fi
+    
+    # Handle individual timestamp changes
+    if [ -n "$access_time" ]; then
+        local access_formatted=$(date -d "$access_time" "+%Y%m%d%H%M.%S")
+        if touch -a -t "$access_formatted" "$target_path"; then
+            echo -e "${GREEN}Successfully updated access time${NC}"
+        else
+            echo -e "${RED}Failed to update access time${NC}"
+            return 1
+        fi
+    fi
+    
+    if [ -n "$modify_time" ]; then
+        local modify_formatted=$(date -d "$modify_time" "+%Y%m%d%H%M.%S")
+        if touch -t "$modify_formatted" "$target_path"; then
+            echo -e "${GREEN}Successfully updated modification time${NC}"
+        else
+            echo -e "${RED}Failed to update modification time${NC}"
+            return 1
+        fi
+    fi
+    
+    return 0
+}
+
+function show_current_timestamps() {
+    local target_path="$1"
+    
+    if [ ! -e "$target_path" ]; then
+        echo -e "${RED}Error: Path does not exist${NC}"
+        return 1
+    fi
+    
+    echo -e "${YELLOW}Current timestamps for: $target_path${NC}"
+    echo "=================================="
+    
+    # Get detailed timestamp information
+    local access_time=$(stat -c %x "$target_path" 2>/dev/null)
+    local modify_time=$(stat -c %y "$target_path" 2>/dev/null)
+    local change_time=$(stat -c %z "$target_path" 2>/dev/null)
+    
+    echo -e "${GREEN}Access Time:${NC}     $access_time"
+    echo -e "${GREEN}Modify Time:${NC}     $modify_time"
+    echo -e "${GREEN}Change Time:${NC}     $change_time"
+    
+    # Show in human-readable format as well
+    echo
+    echo -e "${YELLOW}Human-readable format:${NC}"
+    ls -la "$target_path"
+}
+
+function handle_timestamp_manipulation() {
+    clear
+    echo "=== Timestamp Manipulation ==="
+    echo "1. View current timestamps"
+    echo "2. Set specific timestamps"
+    echo "3. Set timestamps from another file"
+    echo "4. Batch timestamp operations"
+    echo "5. Reset to current time"
+    echo "6. Back to main menu"
+    echo -n "Choose option (1-6): "
+    read ts_choice
+    
+    case $ts_choice in
+        1)  # View timestamps
+            read -e -p "Enter file/folder path: " target_path
+            if [ -n "$target_path" ]; then
+                target_path=$(realpath "$target_path" 2>/dev/null)
+                show_current_timestamps "$target_path"
+            fi
+            ;;
+        2)  # Set specific timestamps
+            read -e -p "Enter file/folder path: " target_path
+            if [ -z "$target_path" ]; then
+                echo -e "${RED}No path provided${NC}"
+                return
+            fi
+            
+            target_path=$(realpath "$target_path" 2>/dev/null)
+            show_current_timestamps "$target_path"
+            echo
+            
+            echo "Enter new timestamps (leave empty to keep current):"
+            echo "Formats: 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DD', '2 days ago', 'last week', etc."
+            
+            read -p "Access time: " new_access
+            read -p "Modification time: " new_modify
+            
+            # Validate dates if provided
+            if [ -n "$new_access" ] && ! validate_date_format "$new_access"; then
+                echo -e "${RED}Invalid access time format${NC}"
+                return
+            fi
+            
+            if [ -n "$new_modify" ] && ! validate_date_format "$new_modify"; then
+                echo -e "${RED}Invalid modification time format${NC}"
+                return
+            fi
+            
+            set_file_timestamps "$target_path" "$new_access" "$new_modify"
+            ;;
+        3)  # Copy timestamps from another file
+            read -e -p "Enter target file/folder path: " target_path
+            read -e -p "Enter source file/folder path (to copy timestamps from): " source_path
+            
+            if [ -z "$target_path" ] || [ -z "$source_path" ]; then
+                echo -e "${RED}Both paths are required${NC}"
+                return
+            fi
+            
+            target_path=$(realpath "$target_path" 2>/dev/null)
+            source_path=$(realpath "$source_path" 2>/dev/null)
+            
+            if [ ! -e "$source_path" ]; then
+                echo -e "${RED}Source path does not exist${NC}"
+                return
+            fi
+            
+            # Use touch with reference file
+            if touch -r "$source_path" "$target_path"; then
+                echo -e "${GREEN}Successfully copied timestamps from $source_path to $target_path${NC}"
+            else
+                echo -e "${RED}Failed to copy timestamps${NC}"
+            fi
+            ;;
+        4)  # Batch operations
+            echo "Batch Timestamp Operations"
+            echo "1. Set timestamps for all files in directory"
+            echo "2. Set timestamps for files matching pattern"
+            echo -n "Choose (1-2): "
+            read batch_choice
+            
+            case $batch_choice in
+                1)  # All files in directory
+                    read -e -p "Enter directory path: " dir_path
+                    if [ ! -d "$dir_path" ]; then
+                        echo -e "${RED}Invalid directory${NC}"
+                        return
+                    fi
+                    
+                    read -p "Enter modification time: " batch_time
+                    if ! validate_date_format "$batch_time"; then
+                        echo -e "${RED}Invalid time format${NC}"
+                        return
+                    fi
+                    
+                    echo -n "Include subdirectories? (y/N): "
+                    read include_sub
+                    
+                    local find_opts="-maxdepth 1"
+                    if [[ "$include_sub" =~ ^[Yy]$ ]]; then
+                        find_opts=""
+                    fi
+                    
+                    local count=0
+                    while IFS= read -r -d '' file; do
+                        if set_file_timestamps "$file" "" "$batch_time"; then
+                            ((count++))
+                        fi
+                    done < <(find "$dir_path" $find_opts -type f -print0)
+                    
+                    echo -e "${GREEN}Updated timestamps for $count files${NC}"
+                    ;;
+                2)  # Pattern matching
+                    read -e -p "Enter directory path: " dir_path
+                    read -p "Enter file pattern (e.g., *.txt, *.jpg): " pattern
+                    read -p "Enter modification time: " batch_time
+                    
+                    if [ ! -d "$dir_path" ] || ! validate_date_format "$batch_time"; then
+                        echo -e "${RED}Invalid directory or time format${NC}"
+                        return
+                    fi
+                    
+                    local count=0
+                    for file in "$dir_path"/$pattern; do
+                        if [ -f "$file" ]; then
+                            if set_file_timestamps "$file" "" "$batch_time"; then
+                                ((count++))
+                            fi
+                        fi
+                    done
+                    
+                    echo -e "${GREEN}Updated timestamps for $count files${NC}"
+                    ;;
+            esac
+            ;;
+        5)  # Reset to current time
+            read -e -p "Enter file/folder path: " target_path
+            if [ -n "$target_path" ]; then
+                target_path=$(realpath "$target_path" 2>/dev/null)
+                if touch "$target_path"; then
+                    echo -e "${GREEN}Reset timestamps to current time${NC}"
+                else
+                    echo -e "${RED}Failed to reset timestamps${NC}"
+                fi
+            fi
+            ;;
+        6)  # Back to main menu
+            return
+            ;;
+        *)
+            echo -e "${RED}Invalid option${NC}"
+            ;;
+    esac
+}
+
 # Updated menu function
 show_menu() {
     clear
-    echo "=== Secure Lock Menu ==="
+    if [ -n "$SESSION_NAME" ]; then
+        echo "=== Secure Lock Menu (Session: $SESSION_NAME) ==="
+    else
+        echo "=== Secure Lock Menu ==="
+    fi
     echo "1. Lock new item"
     echo "2. Unlock item"
     echo "3. Change password"
-    echo "4. Exit"
-    echo "Choose an option (1-4): "
-}
-
-# Remove change_password function
-
-# Modified handle_unlock function to fix sed command issue
-function handle_unlock() {
-    echo "=== Locked Items ==="
-    echo "ID  | Name | Size | Created | Locked Date"
-    echo "----------------------------------------"
-    awk -F'|' '{printf "%-3d | %-20s | %-6s | %-19s | %s\n", NR, $1, $5, $3, $4}' "$METADATA_FILE"
-    
-    echo -n "Enter IDs to unlock (comma-separated, 0 to cancel): "
-    read ids
-    [ "$ids" = "0" ] && return
-    
-    # Split IDs by comma and trim spaces
-    IFS=',' read -r -a id_array <<< "$ids"
-    for i in "${!id_array[@]}"; do
-        id_array[$i]=$(echo "${id_array[$i]}" | tr -d '[:space:]')
-    done
-    
-    echo "1. Temporary unlock (until program exit)"
-    echo "2. Permanent unlock"
-    echo -n "Choose unlock type (1-2): "
-    read unlock_type
-    
-    for id in "${id_array[@]}"; do
-        # Use awk to get the specific line instead of sed
-        local line=$(awk "NR==$id" "$METADATA_FILE")
-        if [ -n "$line" ]; then
-            IFS='|' read -r name path created locked size <<< "$line"
-            ENCRYPTED_FILE="$CONFIG_DIR/$name.gpg"
-            local target_dir=$(dirname "$path")
-            
-            echo "Unlocking $name..."
-            if [ "$unlock_type" = "1" ]; then
-                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path"; then
-                    TEMP_UNLOCKED_ITEMS+=("$name|$path|$created|$locked|$size")
-                    echo "Successfully unlocked at: $path (temporary)"
-                else
-                    echo "Failed to unlock item!"
-                fi
-            elif [ "$unlock_type" = "2" ]; then
-                if unlock_item "$ENCRYPTED_FILE" "$target_dir" "$path"; then
-                    rm "$ENCRYPTED_FILE"
-                    # Use more reliable sed syntax for deletion
-                    sed -i "${id}d" "$METADATA_FILE"
-                    echo "Successfully unlocked at: $path (permanent)"
-                else
-                    echo "Failed to unlock item!"
-                fi
-            fi
-        else
-            echo "Invalid ID: $id"
-        fi
-    done
+    echo "4. Timestamp manipulation"
+    echo "5. Exit"
+    echo "Choose an option (1-5): "
 }
 
 # Modified main menu loop
@@ -916,7 +1114,10 @@ while true;do
         3)  # Change password
             change_password
             ;;
-        4)  # Exit
+        4)  # Timestamp manipulation
+            handle_timestamp_manipulation
+            ;;
+        5)  # Exit
             cleanup
             ;;
         *)
