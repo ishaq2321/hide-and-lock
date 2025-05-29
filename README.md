@@ -26,6 +26,9 @@ A powerful command-line tool for securely encrypting and managing sensitive file
 - 📅 **NEW: Timestamp manipulation** - Modify file/folder creation and modification dates
 - 🕐 **NEW: Batch timestamp operations** - Update multiple files at once
 - 📋 **NEW: Timestamp copying** - Copy timestamps between files
+- 🎨 **NEW: Folder color customization** - Change folder colors across desktop environments
+- 🌈 **NEW: Color presets and custom colors** - 15 preset colors plus custom hex colors
+- 🔄 **NEW: Batch color operations** - Apply colors to multiple folders at once
 
 ## Installation 🚀
 
@@ -96,6 +99,29 @@ chmod +x lock.sh
 > Update multiple files with same timestamp
 ```
 
+### Folder Color Customization Examples
+```bash
+# Set folder color from presets
+./lock.sh
+> Option 5 -> Option 1
+> Select from 15 preset colors (Red, Blue, Green, etc.)
+
+# Set custom hex color
+./lock.sh
+> Option 5 -> Option 2
+> Enter custom color name and hex code (#FF5733)
+
+# Reset folder to default color
+./lock.sh
+> Option 5 -> Option 3
+> Remove custom coloring
+
+# Batch color operations
+./lock.sh
+> Option 5 -> Option 4
+> Apply same color to multiple folders
+```
+
 ## Advanced Usage 💡
 
 ### Session Management
@@ -164,6 +190,51 @@ Options:
 - **Forensics**: Analyze or modify file timeline information
 - **Backup Restoration**: Maintain original timestamps after restoration
 
+## Folder Color Customization Features 🎨
+
+### Supported Desktop Environments
+- **GNOME/Ubuntu** - Uses gio metadata and emblems
+- **KDE/Plasma** - Creates .directory files with custom icons
+- **XFCE** - Uses Thunar-compatible directory files
+- **MATE/Cinnamon** - Generic method with desktop entries
+- **Generic** - Fallback method for unknown environments
+
+### Available Colors
+**Preset Colors (15 options):**
+1. Red (#FF0000)
+2. Green (#00FF00) 
+3. Blue (#0000FF)
+4. Yellow (#FFFF00)
+5. Orange (#FFA500)
+6. Purple (#800080)
+7. Pink (#FFC0CB)
+8. Brown (#A52A2A)
+9. Gray (#808080)
+10. Black (#000000)
+11. Cyan (#00FFFF)
+12. Magenta (#FF00FF)
+13. Lime (#32CD32)
+14. Navy (#000080)
+15. Maroon (#800000)
+
+**Custom Colors:**
+- Any valid hex color (#RRGGBB format)
+- Custom color names
+- Color preview in terminal
+
+### Operations Available
+1. **Set Preset Colors** - Choose from 15 predefined colors
+2. **Set Custom Colors** - Use any hex color with custom names
+3. **Reset to Default** - Remove custom coloring
+4. **Batch Operations** - Apply colors to multiple folders
+5. **View Current Color** - Check existing color configuration
+
+### Use Cases
+- **Organization** - Color-code folders by project, priority, or type
+- **Visual Management** - Quick identification of important directories
+- **Personal Preference** - Customize your file manager appearance
+- **Team Collaboration** - Standardize folder colors across team projects
+
 ## Tips & Best Practices 💪
 
 1. **Session Management:**
@@ -188,6 +259,12 @@ Options:
    - Be careful with batch operations on system files
    - Keep backups before major timestamp changes
    - Use relative dates for convenience ("2 days ago")
+
+5. **Folder Color Operations:**
+   - Test colors in a non-important directory first
+   - Some file managers may require restart to show changes
+   - Colors are stored in .directory and .folder_color files
+   - Batch operations can be undone by batch reset
 
 ## Contributing 🤝
 

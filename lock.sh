@@ -3,7 +3,7 @@
 # Hide&Lock: Secure File & Directory Encryption Tool
 # Author: Muhammad Ishaq Khan
 # Contact: andmynameiskhan@gmail.com
-# Version: 1.3.0
+# Version: 1.4.0
 
 CONFIG_DIR="$HOME/.config/secure_lock"
 CONFIG_FILE="$CONFIG_DIR/settings"
@@ -41,6 +41,9 @@ LOCK_PATH=""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Add new variable near the top with other configs
@@ -572,7 +575,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -v|--version)
-            echo "Hide&Lock version 1.3.0"
+            echo "Hide&Lock version 1.4.0"
             exit 0
             ;;
         --delete-config)
@@ -1066,6 +1069,622 @@ function handle_timestamp_manipulation() {
     esac
 }
 
+# Add folder color customization functions
+function detect_desktop_environment() {
+    if [ "$XDG_CURRENT_DESKTOP" ]; then
+        echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]'
+    elif [ "$DESKTOP_SESSION" ]; then
+        echo "$DESKTOP_SESSION" | tr '[:upper:]' '[:lower:]'
+    elif command -v gnome-shell >/dev/null 2>&1; then
+        echo "gnome"
+    elif command -v plasmashell >/dev/null 2>&1; then
+        echo "kde"
+    elif command -v xfce4-session >/dev/null 2>&1; then
+        echo "xfce"
+    elif command -v mate-session >/dev/null 2>&1; then
+        echo "mate"
+    elif command -v cinnamon >/dev/null 2>&1; then
+        echo "cinnamon"
+    else
+        echo "unknown"
+    fi
+}
+
+function get_folder_color_presets() {
+    cat << 'EOF'
+1|Red|#FF0000|folder-red
+2|Green|#00FF00|folder-green
+3|Blue|#0000FF|folder-blue
+4|Yellow|#FFFF00|folder-yellow
+5|Orange|#FFA500|folder-orange
+6|Purple|#800080|folder-violet
+7|Pink|#FFC0CB|folder-pink
+8|Brown|#A52A2A|folder-brown
+9|Gray|#808080|folder-grey
+10|Black|#000000|folder-black
+11|Cyan|#00FFFF|folder-cyan
+12|Magenta|#FF00FF|folder-magenta
+13|Lime|#32CD32|folder-green
+14|Navy|#000080|folder-blue
+15|Maroon|#800000|folder-red
+EOF
+}
+
+function set_folder_color_gnome() {
+    local folder_path="$1"
+    local color_name="$2"
+    local hex_color="$3"
+    
+    # Check if gio is available
+    if ! command -v gio >/dev/null 2>&1; then
+        echo -e "${RED}Error: gio command not found. Cannot set folder color in GNOME.${NC}"
+        return 1
+    fi
+    
+    # First clear any existing custom settings
+    gio set "$folder_path" -d metadata::custom-icon-name 2>/dev/null || true
+    gio set "$folder_path" -d metadata::emblems 2>/dev/null || true
+    
+    # Set folder color using gio with proper icon name
+    if gio set "$folder_path" metadata::custom-icon-name "$color_name" 2>/dev/null; then
+        echo -e "${GREEN}Successfully set folder color to $color_name${NC}"
+        return 0
+    else
+        # Try alternative method with emblem
+        if gio set "$folder_path" metadata::emblems "$color_name" 2>/dev/null; then
+            echo -e "${GREEN}Successfully set folder emblem to $color_name${NC}"
+            return 0
+        else
+            echo -e "${RED}Failed to set folder color in GNOME${NC}"
+            return 1
+        fi
+    fi
+}
+
+function set_folder_color_kde() {
+    local folder_path="$1"
+    local color_name="$2"
+    local hex_color="$3"
+    
+    # Create .directory file for KDE
+    local directory_file="$folder_path/.directory"
+    
+    # Create or update .directory file with proper structure
+    cat > "$directory_file" << EOF
+[Desktop Entry]
+Icon=$color_name
+Type=Directory
+Name=$(basename "$folder_path")
+EOF
+    
+    if [ -f "$directory_file" ]; then
+        echo -e "${GREEN}Successfully created KDE folder color configuration${NC}"
+        return 0
+    else
+        echo -e "${RED}Failed to create KDE folder color configuration${NC}"
+        return 1
+    fi
+}
+
+function set_folder_color_xfce() {
+    local folder_path="$1"
+    local color_name="$2"
+    local hex_color="$3"
+    
+    # XFCE uses Thunar custom actions and desktop files
+    local desktop_file="$folder_path/.directory"
+    
+    cat > "$desktop_file" << EOF
+[Desktop Entry]
+Icon=$color_name
+Type=Directory
+Name=$(basename "$folder_path")
+EOF
+    
+    if [ -f "$desktop_file" ]; then
+        echo -e "${GREEN}Successfully set XFCE folder icon to $color_name${NC}"
+        # Try to refresh Thunar if running
+        if command -v thunar >/dev/null 2>&1; then
+            killall thunar 2>/dev/null || true
+            sleep 1
+            thunar "$folder_path" 2>/dev/null &
+        fi
+        return 0
+    else
+        echo -e "${RED}Failed to set XFCE folder color${NC}"
+        return 1
+    fi
+}
+
+function set_folder_color_generic() {
+    local folder_path="$1"
+    local color_name="$2"
+    local hex_color="$3"
+    
+    # Create a .folder_color file for future reference
+    local color_file="$folder_path/.folder_color"
+    
+    cat > "$color_file" << EOF
+# Folder color configuration
+# Set by Hide&Lock tool
+COLOR_NAME=$color_name
+HEX_COLOR=$hex_color
+TIMESTAMP=$(date)
+EOF
+    
+    # Try to create a desktop entry file
+    local desktop_file="$folder_path/.directory"
+    cat > "$desktop_file" << EOF
+[Desktop Entry]
+Icon=$color_name
+Type=Directory
+Name=$(basename "$folder_path")
+EOF
+    
+    if [ -f "$color_file" ] && [ -f "$desktop_file" ]; then
+        echo -e "${GREEN}Successfully created generic folder color configuration${NC}"
+        echo -e "${YELLOW}Note: Color may not be visible in all file managers${NC}"
+        return 0
+    else
+        echo -e "${RED}Failed to create folder color configuration${NC}"
+        return 1
+    fi
+}
+
+function apply_folder_color() {
+    local folder_path="$1"
+    local color_name="$2"
+    local hex_color="$3"
+    local de=$(detect_desktop_environment)
+    
+    echo -e "${YELLOW}Detected desktop environment: $de${NC}"
+    
+    case "$de" in
+        *gnome*|*ubuntu*)
+            set_folder_color_gnome "$folder_path" "$color_name" "$hex_color"
+            ;;
+        *kde*|*plasma*)
+            set_folder_color_kde "$folder_path" "$color_name" "$hex_color"
+            ;;
+        *xfce*)
+            set_folder_color_xfce "$folder_path" "$color_name" "$hex_color"
+            ;;
+        *mate*|*cinnamon*)
+            set_folder_color_generic "$folder_path" "$color_name" "$hex_color"
+            ;;
+        *)
+            echo -e "${YELLOW}Unknown desktop environment, using generic method${NC}"
+            set_folder_color_generic "$folder_path" "$color_name" "$hex_color"
+            ;;
+    esac
+}
+
+function validate_hex_color() {
+    local hex="$1"
+    # Remove # if present
+    hex="${hex#'#'}"
+    
+    # Check if it's a valid 6-digit hex color
+    if [[ "$hex" =~ ^[0-9A-Fa-f]{6}$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function show_color_preview() {
+    local color_name="$1"
+    local hex_color="$2"
+    
+    echo -e "${YELLOW}Color Preview:${NC}"
+    echo "Name: $color_name"
+    echo "Hex: $hex_color"
+    
+    # Try to show color preview if terminal supports it
+    if [ "$TERM" != "dumb" ]; then
+        # Convert hex to RGB for terminal display
+        local r=$((16#${hex_color:1:2}))
+        local g=$((16#${hex_color:3:2}))
+        local b=$((16#${hex_color:5:2}))
+        
+        echo -e "\033[48;2;${r};${g};${b}m    \033[0m <- Color sample"
+    fi
+}
+
+function reset_folder_color() {
+    local folder_path="$1"
+    local de=$(detect_desktop_environment)
+    
+    echo -e "${YELLOW}Resetting folder color for: $folder_path${NC}"
+    
+    case "$de" in
+        *gnome*|*ubuntu*)
+            if command -v gio >/dev/null 2>&1; then
+                # Method 1: Delete all custom metadata attributes
+                gio set "$folder_path" -d metadata::custom-icon-name 2>/dev/null || true
+                gio set "$folder_path" -d metadata::emblems 2>/dev/null || true
+                
+                # Method 2: Clear any lingering metadata
+                gio set "$folder_path" metadata::custom-icon-name '' 2>/dev/null || true
+                gio set "$folder_path" metadata::emblems '' 2>/dev/null || true
+                
+                # Method 3: Force refresh by setting and then removing
+                gio set "$folder_path" metadata::custom-icon-name 'folder' 2>/dev/null || true
+                sleep 0.2
+                gio set "$folder_path" -d metadata::custom-icon-name 2>/dev/null || true
+                
+                echo -e "${GREEN}Reset GNOME folder metadata${NC}"
+                
+                # Try to refresh nautilus
+                if command -v nautilus >/dev/null 2>&1; then
+                    killall nautilus 2>/dev/null || true
+                    sleep 1
+                    nautilus --no-desktop 2>/dev/null &
+                    echo -e "${CYAN}Restarted Nautilus file manager${NC}"
+                fi
+            fi
+            ;;
+        *kde*|*plasma*)
+            # Remove .directory file completely for KDE
+            rm -f "$folder_path/.directory"
+            
+            # Try to refresh dolphin
+            if command -v dolphin >/dev/null 2>&1; then
+                killall dolphin 2>/dev/null || true
+                echo -e "${CYAN}Refreshed Dolphin file manager${NC}"
+            fi
+            echo -e "${GREEN}Reset KDE folder to default${NC}"
+            ;;
+        *xfce*)
+            # Remove .directory file completely for XFCE
+            rm -f "$folder_path/.directory"
+            
+            # Try to refresh Thunar
+            if command -v thunar >/dev/null 2>&1; then
+                killall thunar 2>/dev/null || true
+                sleep 1
+                thunar "$folder_path" 2>/dev/null &
+                echo -e "${CYAN}Refreshed Thunar file manager${NC}"
+            fi
+            echo -e "${GREEN}Reset XFCE folder to default${NC}"
+            ;;
+        *mate*|*cinnamon*|*)
+            # For generic environments, remove all custom files
+            rm -f "$folder_path/.directory"
+            rm -f "$folder_path/.folder_color"
+            
+            # Try to refresh caja (MATE) or nemo (Cinnamon)
+            if command -v caja >/dev/null 2>&1; then
+                killall caja 2>/dev/null || true
+            elif command -v nemo >/dev/null 2>&1; then
+                killall nemo 2>/dev/null || true
+            fi
+            echo -e "${GREEN}Removed custom folder configuration files${NC}"
+            ;;
+    esac
+    
+    # Always remove our custom color file
+    rm -f "$folder_path/.folder_color"
+    
+    echo -e "${GREEN}Folder color reset to default successfully${NC}"
+    echo -e "${YELLOW}Note: File manager has been refreshed. Changes should be visible immediately.${NC}"
+}
+
+function batch_set_folder_colors() {
+    local base_dir="$1"
+    local color_name="$2"
+    local hex_color="$3"
+    local include_subdirs="$4"
+    
+    echo -e "${YELLOW}Batch setting folder colors...${NC}"
+    
+    local find_opts="-maxdepth 1"
+    if [[ "$include_subdirs" =~ ^[Yy]$ ]]; then
+        find_opts=""
+    fi
+    
+    local count=0
+    while IFS= read -r -d '' folder; do
+        if [ -d "$folder" ] && [ "$folder" != "$base_dir" ]; then
+            echo "Processing: $folder"
+            if apply_folder_color "$folder" "$color_name" "$hex_color"; then
+                ((count++))
+            fi
+        fi
+    done < <(find "$base_dir" $find_opts -type d -print0)
+    
+    echo -e "${GREEN}Applied color to $count folders${NC}"
+}
+
+function handle_folder_color_customization() {
+    clear
+    echo "=== Folder Color Customization ==="
+    echo "1. Set folder color from presets"
+    echo "2. Set custom folder color"
+    echo "3. Reset folder color to default"
+    echo "4. Batch color operations"
+    echo "5. View current folder color"
+    echo "6. Back to main menu"
+    echo -n "Choose option (1-6): "
+    read color_choice
+    
+    case $color_choice in
+        1)  # Preset colors
+            echo -e "${YELLOW}Available Color Presets:${NC}"
+            echo "=================================="
+            get_folder_color_presets | while IFS='|' read -r num name hex icon; do
+                echo "$num. $name ($hex)"
+            done
+            echo
+            
+            read -p "Select color number (1-15): " preset_num
+            read -e -p "Enter folder path: " folder_path
+            
+            if [ -z "$folder_path" ] || [ ! -d "$folder_path" ]; then
+                echo -e "${RED}Invalid folder path${NC}"
+                return
+            fi
+            
+            # Get selected color
+            local selected_color=$(get_folder_color_presets | grep "^$preset_num|")
+            if [ -z "$selected_color" ]; then
+                echo -e "${RED}Invalid color selection${NC}"
+                return
+            fi
+            
+            IFS='|' read -r _ color_name hex_color icon_name <<< "$selected_color"
+            folder_path=$(realpath "$folder_path" 2>/dev/null)
+            
+            show_color_preview "$color_name" "$hex_color"
+            echo -n "Apply this color? (y/N): "
+            read confirm
+            
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                apply_folder_color "$folder_path" "$icon_name" "$hex_color"
+            fi
+            ;;
+            
+        2)  # Custom color
+            read -e -p "Enter folder path: " folder_path
+            read -p "Enter color name: " custom_name
+            read -p "Enter hex color (e.g., #FF5733): " custom_hex
+            
+            if [ -z "$folder_path" ] || [ ! -d "$folder_path" ]; then
+                echo -e "${RED}Invalid folder path${NC}"
+                return
+            fi
+            
+            if [ -z "$custom_name" ]; then
+                echo -e "${RED}Color name required${NC}"
+                return
+            fi
+            
+            if ! validate_hex_color "$custom_hex"; then
+                echo -e "${RED}Invalid hex color format. Use #RRGGBB${NC}"
+                return
+            fi
+            
+            folder_path=$(realpath "$folder_path" 2>/dev/null)
+            show_color_preview "$custom_name" "$custom_hex"
+            
+            echo -n "Apply this custom color? (y/N): "
+            read confirm
+            
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                apply_folder_color "$folder_path" "folder-custom" "$custom_hex"
+                
+                # Save custom color info
+                local color_file="$folder_path/.folder_color"
+                cat >> "$color_file" << EOF
+CUSTOM_NAME=$custom_name
+EOF
+            fi
+            ;;
+            
+        3)  # Reset color
+            read -e -p "Enter folder path to reset: " folder_path
+            
+            if [ -z "$folder_path" ] || [ ! -d "$folder_path" ]; then
+                echo -e "${RED}Invalid folder path${NC}"
+                return
+            fi
+            
+            folder_path=$(realpath "$folder_path" 2>/dev/null)
+            echo -n "Reset folder color to default? (y/N): "
+            read confirm
+            
+            if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                reset_folder_color "$folder_path"
+                echo -e "${CYAN}Folder has been reset to default appearance${NC}"
+            fi
+            ;;
+            
+        4)  # Batch operations
+            echo "Batch Color Operations"
+            echo "1. Set same color for all folders in directory"
+            echo "2. Reset all folder colors in directory"
+            echo -n "Choose (1-2): "
+            read batch_choice
+            
+            case $batch_choice in
+                1)  # Batch set color
+                    read -e -p "Enter base directory: " base_dir
+                    if [ ! -d "$base_dir" ]; then
+                        echo -e "${RED}Invalid directory${NC}"
+                        return
+                    fi
+                    
+                    echo -e "${YELLOW}Select color:${NC}"
+                    get_folder_color_presets | while IFS='|' read -r num name hex icon; do
+                        echo "$num. $name ($hex)"
+                    done
+                    
+                    read -p "Select color number (1-15): " preset_num
+                    echo -n "Include subdirectories? (y/N): "
+                    read include_sub
+                    
+                    local selected_color=$(get_folder_color_presets | grep "^$preset_num|")
+                    if [ -z "$selected_color" ]; then
+                        echo -e "${RED}Invalid color selection${NC}"
+                        return
+                    fi
+                    
+                    IFS='|' read -r _ color_name hex_color icon_name <<< "$selected_color"
+                    batch_set_folder_colors "$base_dir" "$icon_name" "$hex_color" "$include_sub"
+                    ;;
+                    
+                2)  # Batch reset
+                    read -e -p "Enter base directory: " base_dir
+                    if [ ! -d "$base_dir" ]; then
+                        echo -e "${RED}Invalid directory${NC}"
+                        return
+                    fi
+                    
+                    echo -n "Include subdirectories? (y/N): "
+                    read include_sub
+                    
+                    echo -n "Are you sure you want to reset all folder colors in this directory? (y/N): "
+                    read confirm_batch
+                    
+                    if [[ ! "$confirm_batch" =~ ^[Yy]$ ]]; then
+                        echo "Operation cancelled."
+                        return
+                    fi
+                    
+                    local find_opts="-maxdepth 1"
+                    if [[ "$include_sub" =~ ^[Yy]$ ]]; then
+                        find_opts=""
+                    fi
+                    
+                    local count=0
+                    while IFS= read -r -d '' folder; do
+                        if [ -d "$folder" ] && [ "$folder" != "$base_dir" ]; then
+                            echo "Resetting: $(basename "$folder")"
+                            reset_folder_color "$folder"
+                            ((count++))
+                        fi
+                    done < <(find "$base_dir" $find_opts -type d -print0)
+                    
+                    echo -e "${GREEN}Reset colors for $count folders${NC}"
+                    echo -e "${CYAN}All folders have been reset to default appearance${NC}"
+                    ;;
+            esac
+            ;;
+            
+        5)  # View current color
+            read -e -p "Enter folder path: " folder_path
+            
+            if [ -z "$folder_path" ] || [ ! -d "$folder_path" ]; then
+                echo -e "${RED}Invalid folder path${NC}"
+                return
+            fi
+            
+            folder_path=$(realpath "$folder_path" 2>/dev/null)
+            local color_file="$folder_path/.folder_color"
+            
+            if [ -f "$color_file" ]; then
+                echo -e "${YELLOW}Current folder color configuration:${NC}"
+                echo "=================================="
+                cat "$color_file"
+            else
+                echo -e "${YELLOW}No custom color set for this folder${NC}"
+            fi
+            ;;
+            
+        6)  # Back to main menu
+            return
+            ;;
+            
+        *)
+            echo -e "${RED}Invalid option${NC}"
+            ;;
+    esac
+}
+
+# Add the missing handle_unlock function
+function handle_unlock() {
+    clear
+    echo "=== Unlock Items ==="
+    
+    # Check if there are any locked items
+    if [ ! -s "$METADATA_FILE" ]; then
+        echo "No locked items found."
+        return
+    fi
+    
+    echo "Locked items:"
+    echo "============="
+    local index=1
+    while IFS='|' read -r name path created locked size || [ -n "$name" ]; do
+        echo "$index. $name (Original: $path) [Size: $size]"
+        ((index++))
+    done < "$METADATA_FILE"
+    
+    echo
+    read -p "Enter item number to unlock: " item_num
+    
+    # Validate input
+    if ! [[ "$item_num" =~ ^[0-9]+$ ]] || [ "$item_num" -lt 1 ]; then
+        echo -e "${RED}Invalid selection${NC}"
+        return
+    fi
+    
+    # Get the selected item
+    local current_index=1
+    local selected_name=""
+    local selected_path=""
+    
+    while IFS='|' read -r name path created locked size || [ -n "$name" ]; do
+        if [ "$current_index" -eq "$item_num" ]; then
+            selected_name="$name"
+            selected_path="$path"
+            break
+        fi
+        ((current_index++))
+    done < "$METADATA_FILE"
+    
+    if [ -z "$selected_name" ]; then
+        echo -e "${RED}Invalid selection${NC}"
+        return
+    fi
+    
+    echo "Selected: $selected_name"
+    echo "1. Unlock permanently"
+    echo "2. Unlock temporarily"
+    read -p "Choose unlock type (1-2): " unlock_type
+    
+    local encrypted_file="$CONFIG_DIR/$selected_name.gpg"
+    local target_dir=$(dirname "$selected_path")
+    
+    case $unlock_type in
+        1)  # Permanent unlock
+            if unlock_item "$encrypted_file" "$target_dir" "$selected_path"; then
+                # Remove from metadata
+                grep -v "^$selected_name|" "$METADATA_FILE" > "$METADATA_FILE.tmp"
+                mv "$METADATA_FILE.tmp" "$METADATA_FILE"
+                # Remove encrypted file
+                rm -f "$encrypted_file"
+                echo -e "${GREEN}Item unlocked permanently${NC}"
+            else
+                echo -e "${RED}Failed to unlock item${NC}"
+            fi
+            ;;
+        2)  # Temporary unlock
+            if unlock_item "$encrypted_file" "$target_dir" "$selected_path"; then
+                # Add to temporary unlock tracking
+                local item_info="$selected_name|$selected_path|$created|$locked|$size"
+                TEMP_UNLOCKED_ITEMS+=("$item_info")
+                echo -e "${GREEN}Item unlocked temporarily (will be re-locked on exit)${NC}"
+            else
+                echo -e "${RED}Failed to unlock item${NC}"
+            fi
+            ;;
+        *)
+            echo -e "${RED}Invalid option${NC}"
+            ;;
+    esac
+}
+
 # Updated menu function
 show_menu() {
     clear
@@ -1078,8 +1697,9 @@ show_menu() {
     echo "2. Unlock item"
     echo "3. Change password"
     echo "4. Timestamp manipulation"
-    echo "5. Exit"
-    echo "Choose an option (1-5): "
+    echo "5. Folder color customization"
+    echo "6. Exit"
+    echo "Choose an option (1-6): "
 }
 
 # Modified main menu loop
@@ -1117,7 +1737,10 @@ while true;do
         4)  # Timestamp manipulation
             handle_timestamp_manipulation
             ;;
-        5)  # Exit
+        5)  # Folder color customization
+            handle_folder_color_customization
+            ;;
+        6)  # Exit
             cleanup
             ;;
         *)
