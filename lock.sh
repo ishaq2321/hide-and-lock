@@ -2,7 +2,7 @@
 
 # Hide&Lock: Secure File & Directory Encryption Tool
 # Author: Muhammad Ishaq Khan
-# Contact: andmynameiskhan@gmail.com
+# Contact: ishaq2321@proton.me
 # Version: 1.4.0
 
 CONFIG_DIR="$HOME/.config/secure_lock"
@@ -10,12 +10,11 @@ CONFIG_FILE="$CONFIG_DIR/settings"
 PASSWORD_FILE="$CONFIG_DIR/.password_hash"
 METADATA_FILE="$CONFIG_DIR/items.log"
 MASTER_KEY_FILE="$CONFIG_DIR/.master_key"
-RECOVERY_SCRIPT="$CONFIG_DIR/password_recovery.sh"
 USER_KEY_FILE="$CONFIG_DIR/.user_key"
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 SENSITIVE_DIRS_FILE="$SCRIPT_DIR/sensitive_dirs.txt"
 
-# Add session-specific variables near the top with other configs
+# Session-specific variables
 SESSION_NAME=""
 BASE_SESSION_DIR="$HOME/.config/secure_lock_sessions"
 
@@ -29,7 +28,7 @@ chmod 600 "$METADATA_FILE"
 
 declare -a TEMP_UNLOCKED_ITEMS
 
-# Add GPG options
+# GPG encryption options
 GPG_OPTS="--cipher-algo AES256 --batch --yes --no-tty --quiet"
 
 CURRENT_PASSWORD=""
@@ -37,7 +36,7 @@ MASTER_KEY_USED=false
 FORCE_LOCK=false
 LOCK_PATH=""
 
-# Add color codes near the top
+# Terminal color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -46,17 +45,10 @@ MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Add new variable near the top with other configs
-RECOVERY_PASSWORD_FILE="$CONFIG_DIR/.recovery_password"
+
 
 # Define ALL functions at the start
-function protect_config_directory() {
-    echo "Protecting configuration directory with immutable attribute..."
-    if [[ $EUID -ne 0 ]]; then
-        echo "Warning: You may need sudo privileges to set the immutable bit."
-    fi
-    sudo chattr +i "$CONFIG_DIR" || echo "Warning: Failed to set immutable attribute."
-}
+
 
 function validate_password() {
     local password="$1"
@@ -91,7 +83,7 @@ function validate_metadata() {
     return $valid_entries
 }
 
-# Modified add_lock_entry function
+
 function add_lock_entry() {
     local target="$1"
     local name=$(basename "$target")
@@ -142,7 +134,7 @@ decrypt_with_password() {
     return 1
 }
 
-# Updated function to check if a directory is sensitive
+
 is_sensitive_directory() {
     local dir="$1"
     # Normalize the path (remove trailing slash if exists)
@@ -169,7 +161,7 @@ is_sensitive_directory() {
     return 1
 }
 
-# Modified lock_item function to handle sensitive directories
+
 function lock_item() {
     local source_path="$1"
     local source_name=$(basename "$source_path")
@@ -238,7 +230,7 @@ function lock_item() {
     fi
 }
 
-# Modified unlock_item function - improve error handling
+
 function unlock_item() {
     local encrypted_file="$1"
     local target_dir="$2"
@@ -271,10 +263,7 @@ function unlock_item() {
     return 1
 }
 
-# Add array to track temporarily unlocked items
-declare -a TEMP_UNLOCKED_ITEMS
-
-# Modified cleanup function to handle re-locking properly
+# Cleanup function to handle re-locking properly
 function cleanup() {
     if [ ${#TEMP_UNLOCKED_ITEMS[@]} -gt 0 ]; then
         echo -e "\nRe-locking temporarily unlocked items..."
@@ -303,7 +292,7 @@ hash_password() {
     echo -n "$1" | sha256sum | awk '{print $1}'
 }
 
-# Add new functions for master key handling
+
 generate_master_key() {
     # Generate a random 32-character master key
     openssl rand -hex 16 > "$MASTER_KEY_FILE"
@@ -315,18 +304,18 @@ generate_master_key() {
     echo -e "${YELLOW}  ╚═══════════════════════════════════════════════════════════╝${NC}\n"
 }
 
-# Add function to generate and store user key
+
 generate_user_key() {
     echo -n "$CURRENT_PASSWORD" > "$USER_KEY_FILE"
     chmod 600 "$USER_KEY_FILE"
 }
 
-# Add function to retrieve user key
+
 get_user_key() {
     cat "$USER_KEY_FILE"
 }
 
-# Add these functions near the top with other function definitions
+# Master key functions
 get_master_key() {
     if [ -f "$1" ]; then
         cat "$1"
@@ -353,7 +342,7 @@ function find_session_by_master_key() {
     return 1
 }
 
-# Updated help menu function
+
 show_help() {
     echo "Usage: $(basename "$0") [OPTION]"
     echo "Secure file/folder encryption tool"
@@ -379,8 +368,7 @@ show_help() {
     #echo "  rm -rf $CONFIG_DIR  # WARNING: Deletes all data, use with caution!"
 }
 
-# Add command line argument handling (add this before the main script logic)
-# Add command line argument handling section
+# Session path setup function
 setup_session_paths() {
     local session_name="$1"
     BASE_SESSION_DIR="$HOME/.config/secure_lock_sessions"
@@ -636,7 +624,7 @@ if [ ! -d "$CONFIG_DIR" ]; then
     touch "$METADATA_FILE"
     chmod 600 "$METADATA_FILE"
 
-    protect_config_directory
+
 fi
 
 # Password setup
@@ -723,7 +711,7 @@ if [ "$MASTER_KEY_USED" = false ]; then
     fi
 fi
 
-# Add initialization check after password verification
+# Initialize session after password verification
 function initialize_session() {
     # Validate existing metadata and clean up invalid entries
     echo "Validating locked items..."
@@ -737,10 +725,10 @@ function initialize_session() {
     fi
 }
 
-# Add this after password verification
+
 initialize_session
 
-# Add function to change password
+# Password change function
 change_password() {
     echo -n "Enter current password: "
     read -s old_password
@@ -820,7 +808,7 @@ change_password() {
     fi
 }
 
-# Add new timestamp manipulation functions
+# Timestamp manipulation functions
 function validate_date_format() {
     local date_input="$1"
     
@@ -831,11 +819,7 @@ function validate_date_format() {
     return 1
 }
 
-function format_timestamp() {
-    local date_input="$1"
-    # Convert to standard format: YYYY-MM-DD HH:MM:SS
-    date -d "$date_input" "+%Y-%m-%d %H:%M:%S"
-}
+
 
 function set_file_timestamps() {
     local target_path="$1"
@@ -1069,7 +1053,7 @@ function handle_timestamp_manipulation() {
     esac
 }
 
-# Add folder color customization functions
+# Folder color customization functions
 function detect_desktop_environment() {
     if [ "$XDG_CURRENT_DESKTOP" ]; then
         echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]'
@@ -1601,7 +1585,7 @@ EOF
     esac
 }
 
-# Add the missing handle_unlock function
+# Unlock handling function
 function handle_unlock() {
     clear
     echo "=== Unlock Items ==="
@@ -1685,7 +1669,7 @@ function handle_unlock() {
     esac
 }
 
-# Updated menu function
+
 show_menu() {
     clear
     if [ -n "$SESSION_NAME" ]; then
@@ -1702,7 +1686,7 @@ show_menu() {
     echo "Choose an option (1-6): "
 }
 
-# Modified main menu loop
+# Main menu loop
 while true;do
     show_menu
     read choice

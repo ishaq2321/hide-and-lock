@@ -278,10 +278,16 @@ Contributions are welcome! Please feel free to submit pull requests.
 
 ## Coming for Windows in the next version.
 
+## Looking for More Advanced Security? 🔐
+
+Hide&Lock provides simple and secure file encryption, but if you need **extremely sophisticated security** with advanced features like **keyboard logging protection** and **enhanced folder locking mechanisms**, check out our advanced solution:
+
+**[PhantomVault](https://github.com/ishaq2321/phantomVault.git)** - An extremely sophisticated security tool that uses keyboard logging techniques to secure and lock folders with advanced protection mechanisms.
+
 ## Contact 📞
 
 For support, feature requests, or issues:
-- 📧 Email: andmynameiskhan@gmail.com
+- 📧 Email: ishaq2321@proton.me
 - 🌐 GitHub Issues: [Create an issue](https://github.com/ishaq2321/hide-and-lock/issues)
 
 ## License 📄
