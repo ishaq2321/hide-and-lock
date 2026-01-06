@@ -11,7 +11,7 @@ A powerful command-line tool for securely encrypting and managing sensitive file
   - Forgetting passwords or master keys
   - System crashes during encryption/decryption
   - Improper use of force options (-r)
-  - Accidental deletion of configuration
+  - Accidental deletion of configuration 
 
 ## Features ✨
 
